@@ -1,0 +1,6 @@
+# Variant 32 - test program
+
+LOAD_CONST 956
+READ_MEM 330
+WRITE_MEM 36
+BITWISE_NOT 76

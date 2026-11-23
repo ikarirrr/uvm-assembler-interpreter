@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Команды виртуальной машины, вариант 32
 COMMANDS = {
-    "LOAD_CONST": {"opcode": 31, "bits": 36},
+    "LOAD_CONST": {"opcode": 31, "bits": 34},
     "READ_MEM": {"opcode": 55, "bits": 15},
     "WRITE_MEM": {"opcode": 40, "bits": 14},
     "BITWISE_NOT": {"opcode": 18, "bits": 14},
@@ -12,13 +12,11 @@ COMMANDS = {
 
 def translate(source):
     """
-    Перевод текста программы в промежуточное
-    представление.
+    Перевод текста программы в промежуточное представление.
     """
     instructions = []
 
     for line_number, line in enumerate(source.splitlines(), 1):
-        # Убираем комментарии и пробелы
         line = line.split("#", 1)[0].strip()
 
         if not line:
@@ -62,6 +60,33 @@ def translate(source):
 
     return instructions
 
+def encode_instruction(instruction):
+    """
+    Кодирование одной команды в 5 байт.
+
+    Биты 0-5: код операции A.
+    Биты 6-39: значение B.
+    """
+    opcode = instruction["A"]
+    value = instruction["B"]
+
+    # Объединяем поля A и B
+    machine_code = opcode | (value << 6)
+
+    # Преобразуем число в 5 байт
+    return machine_code.to_bytes(5, byteorder="little")
+
+def assemble(instructions):
+    """
+    Перевод всех команд в машинный код.
+    """
+    result = bytearray()
+
+    for instruction in instructions:
+        result.extend(encode_instruction(instruction))
+
+    return bytes(result)
+
 def main():
     parser = argparse.ArgumentParser(
         description="UVM Assembler, Variant 32"
@@ -73,26 +98,58 @@ def main():
     )
 
     parser.add_argument(
+        "output",
+        nargs="?",
+        help="Path to binary output file"
+    )
+
+    parser.add_argument(
         "--test",
         action="store_true",
-        help="Print intermediate representation"
+        help="Print intermediate representation and bytes"
     )
 
     args = parser.parse_args()
 
-    source_path = Path(args.source)
-    source = source_path.read_text(encoding="utf-8")
+    try:
+        source_path = Path(args.source)
+        source = source_path.read_text(encoding="utf-8")
 
-    instructions = translate(source)
+        # Этап 1: промежуточное представление
+        instructions = translate(source)
 
-    if args.test:
-        print(json.dumps(
-            instructions,
-            ensure_ascii=False,
-            indent=4
-        ))
-    else:
-        print("Translation completed successfully.")
+        # Этап 2: машинный код
+        machine_code = assemble(instructions)
+
+        if args.output:
+            output_path = Path(args.output)
+
+            output_path.parent.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+            output_path.write_bytes(machine_code)
+
+            print(f"Binary file saved: {output_path}")
+
+        print(f"Binary size: {len(machine_code)} bytes")
+
+        if args.test:
+            print("\nIntermediate representation:")
+            print(json.dumps(
+                instructions,
+                ensure_ascii=False,
+                indent=4
+            ))
+
+            print("\nMachine code:")
+            print(" ".join(
+                f"0x{byte:02X}" for byte in machine_code
+            ))
+
+    except (ValueError, OSError, OverflowError) as error:
+        parser.exit(1, f"Error: {error}\n")
 
 if __name__ == "__main__":
     main()

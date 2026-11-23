@@ -1,0 +1,8 @@
+# Stage 4 - Bitwise NOT test
+# Variant 32
+
+LOAD_CONST 15
+WRITE_MEM 100
+
+LOAD_CONST 100
+BITWISE_NOT 200
